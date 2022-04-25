@@ -2,6 +2,7 @@ const { logger } = require("../common/log");
 const moment = require("moment");
 var mongodb = require("mongodb");
 const { generateToken, verifyToken } = require("../common/auth");
+const { sendEmail } = require("../common/email");
 
 const login = async (request, response, pool) => {
   try {
@@ -47,10 +48,23 @@ const getUsers = async (request, response, pool) => {
 const insertUser = async (request, response, pool) => {
   try {
     const collection = pool.collection("users");
-    await collection.insertOne(request.body);
-    return response
-      .status(200)
-      .json({ message: "success", token: request.token });
+
+    const code = Math.floor(Math.random() * 10000)
+      .toString()
+      .padStart(4, "0"); //0738
+
+    request.body.code = code;
+    const user = await collection.insertOne(request.body);
+
+    const message = `
+    <h1>Your account has approved.</h1>
+    Please click <a href="http://localhost:8080/api/approve/${String(
+      user.insertedId
+    )}/${code}">CLICK HERE</a> to approve your account. Your code: <b>${code}</b>
+    `;
+    sendEmail(request.body.email, "NEST ERP - approval email", message);
+
+    return response.status(200).json({ message: "success" });
   } catch (error) {
     response.status(500).send({ error: error.message });
     logger.error(`${request.ip} ${error.message}`);
@@ -98,6 +112,33 @@ const updateUser = async (request, response, pool) => {
   }
 };
 
+const approveUser = async (request, response, pool) => {
+  try {
+    const { id, code } = request.params;
+
+    const collection = pool.collection("users");
+
+    const found = await collection.findOne({
+      _id: new mongodb.ObjectID(id),
+      code,
+    });
+
+    if (found) {
+      await collection.updateOne(
+        { _id: new mongodb.ObjectID(id) },
+        { $set: { ...found, status: "approved" } }
+      );
+      response.status(200).json({ message: "success" });
+    } else {
+      response.status(404).json({ message: "id or code is wrong!" });
+    }
+  } catch (error) {
+    response.status(500).send({ error: error.message });
+    logger.error(`${request.ip} ${error.message}`);
+    return;
+  }
+};
+
 const getBlog = async (request, response, pool) => {
   try {
     const collection = pool.collection("blog");
@@ -137,4 +178,5 @@ module.exports = {
   login,
   insertBlog,
   getBlog,
+  approveUser,
 };

@@ -1,24 +1,18 @@
 const { isAuth } = require("../common/auth");
 
-// postgresql сонгосон бол доорх мөрийн uncomment
-// const {
-//   getUsers,
-//   insertUser,
-//   updateUser,
-//   deleteUser,
-// } = require("../logic/admin");
-
 // mongodb сонгосон бол доорх мөрийн uncomment
-// const {
-//   getUsers,
-//   insertUser,
-//   updateUser,
-//   deleteUser,
-//   login,
-//   insertBlog,
-//   getBlog,
-// } = require("../logic/admin_mongo");
-// const { logger } = require("../common/log");
+const {
+  getUsers,
+  insertUser,
+  updateUser,
+  deleteUser,
+  login,
+  insertBlog,
+  getBlog,
+  approveUser,
+} = require("../logic/admin_mongo");
+const { logger } = require("../common/log");
+const { sendEmail } = require("../common/email");
 
 module.exports = function (app, connection) {
   /**
@@ -43,7 +37,6 @@ module.exports = function (app, connection) {
   app.get("/api/user", isAuth, async (req, res) => {
     try {
       logger.info(`${req.ip} /user [get]`);
-
       getUsers(req, res, connection);
     } catch (err) {
       logger.error(`${req.ip} ${err}`);
@@ -51,7 +44,17 @@ module.exports = function (app, connection) {
     }
   });
 
-  app.post("/api/user", isAuth, async (req, res) => {
+  app.get("/api/approve/:id/:code", async (req, res) => {
+    try {
+      logger.info(`${req.ip} /api/approval/:id/:code [get]`);
+      approveUser(req, res, connection);
+    } catch (err) {
+      logger.error(`${req.ip} ${err}`);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/user", async (req, res) => {
     try {
       logger.info(`${req.ip} /user [post]`);
       insertUser(req, res, connection);
